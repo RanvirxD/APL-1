@@ -1,9 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StadiumMap } from './stadium-map';
 import { AdminTab } from './tab-navigation';
 import { AlertTriangle, TrendingUp, Users, Zap } from 'lucide-react';
+import {
+  getGeminiOpsAlert,
+  getMessages,
+  getReports,
+  getZones,
+  postMessage,
+  type Message as ChatMessage,
+  type Report,
+} from '@/lib/api';
 
 interface ZoneDensity {
   zone: string;
@@ -23,10 +32,30 @@ interface AdminDashboardProps {
   activeTab: AdminTab;
 }
 
+function formatMessageTime(createdAt: string) {
+  return new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatReportDate(createdAt: string) {
+  return new Date(createdAt).toLocaleString();
+}
+
 export function AdminDashboard({ activeTab }: AdminDashboardProps) {
   const [densities, setDensities] = useState<ZoneDensity[]>([]);
   const [alerts, setAlerts] = useState<AlertEvent[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatText, setChatText] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [aiAlertText, setAiAlertText] = useState('Sections B and F approaching capacity thresholds. Consider flow adjustments.');
+  const [aiAlertLoading, setAiAlertLoading] = useState(false);
+
+  const hasHighRiskAlert = useMemo(
+    () => alerts.some((a) => a.status === 'active' && (a.zone === 'B' || a.zone === 'F')),
+    [alerts],
+  );
 
   useEffect(() => {
     fetchData();
@@ -34,26 +63,88 @@ export function AdminDashboard({ activeTab }: AdminDashboardProps) {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    void loadReports();
+  }, []);
+
+  useEffect(() => {
+    void loadMessages();
+    const interval = setInterval(() => {
+      void loadMessages();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   const fetchData = async () => {
     try {
       const [densitiesRes, alertsRes] = await Promise.all([
-        fetch('/api/densities'),
-        fetch('/api/alerts'),
+        fetch('/api/densities', { cache: 'no-store' }),
+        fetch('/api/alerts', { cache: 'no-store' }),
       ]);
 
       if (densitiesRes.ok) {
-        const data = await densitiesRes.json();
+        const data = (await densitiesRes.json()) as ZoneDensity[];
         setDensities(data);
       }
 
       if (alertsRes.ok) {
-        const data = await alertsRes.json();
+        const data = (await alertsRes.json()) as AlertEvent[];
         setAlerts(data);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadReports = async () => {
+    try {
+      setReportsLoading(true);
+      const data = await getReports();
+      setReports(data);
+    } catch (error) {
+      console.error('Failed to fetch reports:', error);
+    } finally {
+      setReportsLoading(false);
+    }
+  };
+
+  const loadMessages = async () => {
+    try {
+      const data = await getMessages();
+      setMessages(data);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    const text = chatText.trim();
+    if (!text || sendingMessage) return;
+
+    try {
+      setSendingMessage(true);
+      await postMessage({ senderName: 'Admin', senderRole: 'admin', text });
+      setChatText('');
+      await loadMessages();
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  const handleGetAiAlert = async () => {
+    try {
+      setAiAlertLoading(true);
+      const zones = await getZones();
+      const result = await getGeminiOpsAlert(zones);
+      setAiAlertText(result.alert);
+    } catch (error) {
+      console.error('Failed to get AI alert:', error);
+    } finally {
+      setAiAlertLoading(false);
     }
   };
 
@@ -66,7 +157,6 @@ export function AdminDashboard({ activeTab }: AdminDashboardProps) {
             <p className="text-muted-foreground text-sm">Real-time stadium operations control</p>
           </div>
 
-          {/* KPI Cards */}
           <div className="px-4 grid grid-cols-2 gap-3">
             <div className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
@@ -100,7 +190,7 @@ export function AdminDashboard({ activeTab }: AdminDashboardProps) {
               <div className="text-2xl font-bold text-green-500">
                 {densities.length > 0
                   ? Math.round(
-                      densities.reduce((sum, d) => sum + d.percentage, 0) / densities.length
+                      densities.reduce((sum, d) => sum + d.percentage, 0) / densities.length,
                     )
                   : 0}
                 %
@@ -120,22 +210,27 @@ export function AdminDashboard({ activeTab }: AdminDashboardProps) {
             </div>
           </div>
 
-          {/* Stadium Visualization */}
           <div className="px-4">
             <h2 className="text-lg font-semibold text-foreground mb-4">Real-Time Stadium View</h2>
             <StadiumMap />
           </div>
 
-          {/* AI Alert */}
-          {alerts.some((a) => a.status === 'active' && a.zone === 'B' || a.zone === 'F') && (
+          {(hasHighRiskAlert || aiAlertText) && (
             <div className="mx-4 bg-accent/10 border border-accent/50 rounded-lg p-4 animate-slide-up">
               <div className="flex items-start gap-3">
                 <div className="w-2 h-2 rounded-full bg-accent mt-1.5 animate-pulse" />
-                <div>
-                  <p className="text-sm font-semibold text-accent mb-1">AI Alert: High Density Warning</p>
-                  <p className="text-xs text-muted-foreground">
-                    Sections B and F approaching capacity thresholds. Consider flow adjustments.
-                  </p>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-sm font-semibold text-accent">AI Alert: High Density Warning</p>
+                    <button
+                      onClick={handleGetAiAlert}
+                      disabled={aiAlertLoading}
+                      className="bg-accent text-accent-foreground text-xs px-3 py-1.5 rounded-md disabled:opacity-70"
+                    >
+                      {aiAlertLoading ? 'Loading...' : 'Get AI Alert'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{aiAlertText}</p>
                 </div>
               </div>
             </div>
@@ -189,31 +284,86 @@ export function AdminDashboard({ activeTab }: AdminDashboardProps) {
       {activeTab === 'reports' && (
         <div className="space-y-4 pt-6 px-4 pb-6">
           <h1 className="text-2xl font-bold">Reports</h1>
-          <div className="bg-card border border-border rounded-lg p-6 space-y-3">
-            <div className="pb-3 border-b border-border">
-              <p className="text-sm text-muted-foreground mb-1">Crowd Flow Analysis</p>
-              <p className="font-semibold text-foreground">Generated Today</p>
+          {reportsLoading ? (
+            <div className="bg-card border border-border rounded-lg p-6 text-center text-muted-foreground">
+              Loading reports...
             </div>
-            <div className="pb-3 border-b border-border">
-              <p className="text-sm text-muted-foreground mb-1">Incident Report</p>
-              <p className="font-semibold text-foreground">0 Major Incidents</p>
+          ) : reports.length === 0 ? (
+            <div className="bg-card border border-border rounded-lg p-6 text-center text-muted-foreground">
+              No reports yet
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Peak Occupancy</p>
-              <p className="font-semibold text-foreground">68% (2.5 hours ago)</p>
+          ) : (
+            <div className="space-y-3">
+              {reports.map((report) => (
+                <div key={report._id} className="bg-card border border-border rounded-lg p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-foreground">
+                      {report.type.toUpperCase()} - {report.severity}
+                    </p>
+                    <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
+                      {report.status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-foreground mt-2">{report.description}</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {report.location} - {formatReportDate(report.createdAt)}
+                  </p>
+                </div>
+              ))}
             </div>
-          </div>
+          )}
         </div>
       )}
 
       {activeTab === 'chat' && (
         <div className="space-y-4 pt-6 px-4 pb-6">
           <h1 className="text-2xl font-bold">Staff Communication</h1>
-          <div className="bg-card border border-border rounded-lg p-4 text-center">
-            <p className="text-muted-foreground mb-4">No messages</p>
-            <button className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium">
-              Start Broadcast
-            </button>
+          <div className="bg-card border border-border rounded-lg p-4 h-[60vh] flex flex-col">
+            <div className="flex-1 overflow-y-auto pr-1 space-y-3">
+              {messages.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                  No messages yet
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <div key={message._id} className="border border-border rounded-lg p-3 bg-background">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold text-foreground">{message.senderName}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-primary/15 text-primary uppercase">
+                        {message.senderRole}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatMessageTime(message.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-foreground">{message.text}</p>
+                    {message.filtered && (
+                      <p className="text-xs text-muted-foreground mt-1">(filtered)</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="pt-3 mt-3 border-t border-border flex gap-2">
+              <input
+                value={chatText}
+                onChange={(e) => setChatText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    void handleSendMessage();
+                  }
+                }}
+                placeholder="Type a message..."
+                className="flex-1 bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <button
+                onClick={() => void handleSendMessage()}
+                disabled={sendingMessage}
+                className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-70"
+              >
+                {sendingMessage ? 'Sending...' : 'Send'}
+              </button>
+            </div>
           </div>
         </div>
       )}

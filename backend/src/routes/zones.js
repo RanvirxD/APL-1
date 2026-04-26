@@ -15,9 +15,4 @@ router.get('/match', (req, res) => {
   res.json(match);
 });
 
-router.post('/report', (req, res) => {
-  console.log(req.body);
-  res.json({ success: true, message: "Report received" });
-});
-
 export default router;

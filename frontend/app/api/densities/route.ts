@@ -1,30 +1,33 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server'
+
+type BackendZone = {
+  id: string
+  density: number
+}
 
 export async function GET() {
-  // Simulated real-time density data with variations
-  const zones = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  
-  // Generate deterministic but varied data based on time
-  const now = Date.now();
-  const baseValue = 50 + (now % 30); // Varies between 50-80
-  
-  const densities = zones.map((zone, index) => {
-    // Red zones (B, F) have higher density patterns
-    const isRedZone = zone === 'B' || zone === 'F';
-    const variance = isRedZone ? 15 : 10;
-    const basePercentage = isRedZone ? baseValue + variance : baseValue - (index % 3) * 5;
-    const percentage = Math.max(20, Math.min(95, basePercentage + (index % 7) - 3));
-    
-    return {
-      zone,
-      percentage: Math.round(percentage),
-      count: Math.round((percentage / 100) * 12000 + Math.random() * 500),
-    };
-  });
+  try {
+    const response = await fetch('http://localhost:3001/api/zones', {
+      cache: 'no-store',
+    })
 
-  return NextResponse.json(densities, {
-    headers: {
-      'Cache-Control': 'no-store, max-age=0',
-    },
-  });
+    if (!response.ok) {
+      return NextResponse.json({ error: 'Failed to fetch zones' }, { status: 502 })
+    }
+
+    const zones = (await response.json()) as BackendZone[]
+    const densities = zones.map((z) => ({
+      zone: z.id,
+      percentage: z.density,
+      count: Math.round((z.density / 100) * 12000),
+    }))
+
+    return NextResponse.json(densities, {
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+      },
+    })
+  } catch {
+    return NextResponse.json({ error: 'Backend unavailable' }, { status: 500 })
+  }
 }
