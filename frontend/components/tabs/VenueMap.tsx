@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Map as LeafletMap, LayerGroup, Marker } from 'leaflet'
 
 const LAYER_TYPES = [
@@ -325,8 +325,8 @@ export default function VenueMap() {
   const [leafletReady, setLeafletReady] = useState<boolean>(false)
   const mapRef = useRef<LeafletMap | null>(null)
   const initializedRef = useRef<boolean>(false)
-  const markersRef = useRef<
-    Record<
+  const markersRef = useRef
+    Record
       string,
       {
         group: LayerGroup
@@ -434,7 +434,7 @@ export default function VenueMap() {
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map)
       mapRef.current = map
 
-      const layerGroups: Record<
+      const layerGroups: Record
         string,
         {
           group: LayerGroup
@@ -520,11 +520,16 @@ export default function VenueMap() {
     if (!navigator.geolocation || !mapRef.current || !leafletRef.current) return
 
     const L = leafletRef.current
+
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         const { latitude, longitude } = coords
+        if (!mapRef.current) return
 
-        if (userMarkerRef.current && mapRef.current.hasLayer(userMarkerRef.current)) {
+        if (
+          userMarkerRef.current &&
+          mapRef.current.hasLayer(userMarkerRef.current)
+        ) {
           mapRef.current.removeLayer(userMarkerRef.current)
         }
 
@@ -539,6 +544,8 @@ export default function VenueMap() {
           .openPopup()
 
         userMarkerRef.current = marker as unknown as Marker
+
+        if (!mapRef.current) return
         mapRef.current.panTo([latitude, longitude])
         mapRef.current.setZoom(18)
       },
@@ -613,7 +620,7 @@ export default function VenueMap() {
           <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
             <div className="flex flex-col items-center gap-3">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-              <p className="text-13px text-gray-500">Loading map...</p>
+              <p className="text-[13px] text-gray-500">Loading map...</p>
             </div>
           </div>
         )}
