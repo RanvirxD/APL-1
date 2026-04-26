@@ -18,7 +18,7 @@ Max 20 words. No emojis. Be specific about zones and wait times.`;
     res.json({ nudge: text });
   } catch (err) {
     console.error('Gemini nudge error:', err);
-    res.status(500).json({ nudge: 'Head to Gate C for fastest entry right now.' });
+    res.json({ nudge: 'Head to Gate C for fastest entry right now.' });
   }
 });
 
@@ -34,7 +34,7 @@ plain English action for staff. Max 25 words. No emojis.`;
     res.json({ alert: text });
   } catch (err) {
     console.error('Gemini ops error:', err);
-    res.status(500).json({ alert: 'Deploy staff to Food Court immediately. Density critical.' });
+    res.json({ alert: 'Deploy staff to Food Court immediately. Density critical.' });
   }
 });
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { StadiumMap } from './stadium-map';
+import { VenueMap } from './venue-map';
 import { AttendeeTab } from './tab-navigation';
 import {
   getGeminiNudge,
@@ -108,20 +109,25 @@ export function AttendeeDashboard({ activeTab }: AttendeeTabProps) {
       )}
 
       {activeTab === 'venue' && (
-        <div className="space-y-4 pt-6 px-4">
-          <h1 className="text-2xl font-bold">Venue Information</h1>
-          <div className="bg-card border border-border rounded-lg p-6 space-y-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Gates</p>
-              <p className="text-lg font-semibold">Gates A-H Open</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Facilities</p>
-              <p className="text-lg font-semibold">Restrooms • Food • Shops</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Parking</p>
-              <p className="text-lg font-semibold">Lots A-F Available</p>
+        <div className="space-y-4 pt-6 pb-6">
+          <div className="px-4">
+            <h1 className="text-2xl font-bold">Venue Information</h1>
+          </div>
+          <VenueMap />
+          <div className="px-4">
+            <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Gates</p>
+                <p className="text-lg font-semibold">Gates A-H Open</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Facilities</p>
+                <p className="text-lg font-semibold">Restrooms • Food • Shops</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Parking</p>
+                <p className="text-lg font-semibold">Lots A-F Available</p>
+              </div>
             </div>
           </div>
         </div>

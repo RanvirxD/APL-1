@@ -10,7 +10,20 @@ import messagesRouter from './src/routes/messages.js';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (
+      !origin ||
+      origin.includes('localhost') ||
+      origin.includes('.run.app')
+    ) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
+  credentials: true,
+}))
 app.use(express.json());
 
 connectDB();

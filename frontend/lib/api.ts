@@ -1,4 +1,5 @@
-const BASE = 'http://localhost:3001/api'
+const BACKEND_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001/api'
+const BASE = BACKEND_BASE.endsWith('/api') ? BACKEND_BASE : `${BACKEND_BASE}/api`
 
 export type Zone = {
   id: string
@@ -124,18 +125,34 @@ export async function getReports(): Promise<Report[]> {
 export async function getGeminiNudge(
   zones: Zone[],
 ): Promise<{ nudge: string }> {
-  return request<{ nudge: string }>('/nudge', {
-    method: 'POST',
-    body: JSON.stringify({ zones }),
-  })
+  try {
+    const response = await fetch(`${BASE}/nudge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ zones }),
+      cache: 'no-store',
+    })
+    const data = (await response.json()) as { nudge?: string }
+    return { nudge: data.nudge ?? 'Head to Gate C for fastest entry right now.' }
+  } catch {
+    return { nudge: 'Head to Gate C for fastest entry right now.' }
+  }
 }
 
 export async function getGeminiOpsAlert(
   zones: Zone[],
 ): Promise<{ alert: string }> {
-  return request<{ alert: string }>('/ops-alert', {
-    method: 'POST',
-    body: JSON.stringify({ zones }),
-  })
+  try {
+    const response = await fetch(`${BASE}/ops-alert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ zones }),
+      cache: 'no-store',
+    })
+    const data = (await response.json()) as { alert?: string }
+    return { alert: data.alert ?? 'Deploy staff to Food Court immediately. Density critical.' }
+  } catch {
+    return { alert: 'Deploy staff to Food Court immediately. Density critical.' }
+  }
 }
 
